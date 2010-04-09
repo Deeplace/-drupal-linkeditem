@@ -1,0 +1,89 @@
+<?php
+
+/*
+ * Implementation of hook_elements(  )
+*/
+function linkeditem_elements() {
+  $type['linked'] = array( 
+       '#input' => TRUE,
+       '#process' => array('linkeditem_expand'),
+       '#default_value' => NULL,
+       '#options' => array(),
+    );
+  return $type;
+}
+
+/**
+ * Our process callback to expand the table control.
+ */
+function linkeditem_expand($element) {
+    $element['#tree'] = FALSE;
+    return $element;
+}
+
+
+/**
+ * Implementation of hook_theme().
+ * 
+ * This lets us tell Drupal about our theme functions and their arguments.
+ */
+function linkeditem_theme(){
+  return array(
+    'linked' => array(
+      'arguments' => array('element'),
+    ),
+  );
+}
+
+function linkeditem_js_load(){
+    $path = drupal_get_path( 'module', 'linkeditem' );
+    drupal_add_js( $path . '/js/linkeditem.js' ); 
+}
+
+/**
+ * Theme function to format the output of tablegrid form element type.
+ *
+ */
+function theme_linked(  $element ){
+  static $configs = array(  );
+
+    $config = $element['#linked'];
+    $config_key = array_search( $config, $configs );
+    if ( $config_key === FALSE ) {
+        $configs[] = $config;
+        $config_key = count( $configs ) - 1;
+        drupal_add_js( array( 'linkedinput'=>array( $config_key=>$config ) ), 'setting' );
+    }
+
+    jquery_livequery_js_load(  );
+    linkeditem_js_load(  );
+    $output = '';
+
+    $output .= '<div class="linked-input" rel="' . $config_key . '">';
+    if (isset($element['#field_prefix'])) {
+        $output .= '<span class="field-prefix">'. $element['#field_prefix'] .'</span>';
+    }
+    
+    //Generate child elements, disabled, with same name as parent, and class containing name
+    foreach ( element_children( $element ) as $item_key ) {
+         $item = $element[$item_key];
+         unset( $item['#printed'], $item['#value']);
+         $item['#id'] = form_clean_id('edit-'. $item['#name'] . 'inner' );
+         $item['#name'] = $element['#name'];
+         $children .= '<div class="edit-' . $item_key. '-wrapper">' . drupal_render($item) . '</div>';
+    }
+    
+    $output .= '<div class="hiddenFields"> ' . $children . '</div>';
+
+    if (isset($element['#field_suffix'])) {
+        $output .= ' <span class="field-suffix">'. $element['#field_suffix'] .'</span>';
+    }
+
+    $output .= '</div>';
+    
+
+
+  $out = theme('form_element', $element, $output);
+  return $out;
+}
+
