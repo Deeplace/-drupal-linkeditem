@@ -8,7 +8,7 @@ function linkeditem_elements() {
        '#input' => TRUE,
        '#process' => array('linkeditem_expand'),
        '#default_value' => NULL,
-       '#options' => array(),
+       '#linked' => array(),
     );
   return $type;
 }
