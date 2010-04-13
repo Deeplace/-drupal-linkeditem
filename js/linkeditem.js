@@ -1,12 +1,45 @@
+(function($) {
+	$.fn.extend({
+
+        // Update all linked elements
+        linkedUpdate: function() {
+            //get value
+            var value = $(this).val();
+            //get list data
+            var list = $( this ).data( 'linked_list');
+			if ( !list || !list.length ) {
+				return;
+			}
+            //iterate over list
+			$(list).each( function(){
+                //make all inputs disabled
+                var item = $(this);
+				$( ".hiddenFields > div", item ).each( function(){
+					$(this).hide().find( ":input" ).attr( 'disabled', true );
+				});
+
+                // enable - 'edit-'+ value +'wrapper'
+                if ( !value.length ) {
+					return;
+				}
+				$( ".hiddenFields > div.edit-" + value + "-wrapper", item ).each( function(){
+					$( this ).show().find( ":input" ).attr( 'disabled', false );
+				});
+
+			});
+	    }
+	});
+})(jQuery);
+
 /* Bind init function all current and future nodes */
 $( "div.linked-input:visible" ).livequery( function() {
-      var hinput = $( this )
+      var hinput = $(this);
       var conf_key = hinput.attr( "rel" );
       if ( !conf_key ) {
     	  return;
       }
       if ( !Drupal.settings.linkedinput) {
-          return
+          return;
       }
       var settings = Drupal.settings.linkedinput[conf_key];
       if ( !settings ) {
@@ -31,47 +64,13 @@ $( "div.linked-input:visible" ).livequery( function() {
       var $master = $( "#" + id ); //FIXME how it would work with radio/checkboxes/hidden
       var list = $master.data( 'linked_list' );
 	  if ( list == null ) {
-		list = []
+		list = [];
 	  }
 	  list[list.length] = hinput;
 	  $master.data( 'linked_list', list );
       //Trigger value change function
 	  $master.bind( 'change', function(){
-			var test =	$(this)
+			var test = $(this);
 			test.linkedUpdate();
 	  }).linkedUpdate();
 });
-
-
-(function($) {
-	$.fn.extend({
-
-        // Update all linked elements
-        linkedUpdate: function() {
-            //get value
-            var value = $( this ).val();
-            //get list data
-            var list = $( this ).data( 'linked_list');
-			if ( !list || !list.length ) {
-				return;
-			}
-            //iterate over list
-			$(list).each( function(){
-                //make all inputs disabled
-                var item = $(this);
-				$( ".hiddenFields > div", item ).each( function(){
-					$(this).hide().find( ":input" ).attr( 'disabled', true );
-				});
-
-                // enable - 'edit-'+ value +'wrapper'
-                if ( !value.length ) {
-					return;
-				}
-				$( ".hiddenFields > div.edit-" + value + "-wrapper", item ).each( function(){
-					$( this ).show().find( ":input" ).attr( 'disabled', false );
-				});
-
-			});
-	    },
-	});
-})(jQuery);
