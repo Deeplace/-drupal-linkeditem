@@ -38,6 +38,7 @@ function linkeditem_theme(){
 function linkeditem_js_load(){
     $path = drupal_get_path( 'module', 'linkeditem' );
     drupal_add_js( $path . '/js/linkeditem.js' ); 
+    drupal_add_css( $path . '/css/linkeditem.css'); 
 }
 
 /**
