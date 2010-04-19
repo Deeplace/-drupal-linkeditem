@@ -17,7 +17,10 @@ function linkeditem_elements() {
  * Our process callback to expand the table control.
  */
 function linkeditem_expand($element) {
-    $element['#tree'] = FALSE;
+    $element['#tree'] = TRUE;
+    foreach( element_children( $element ) as $key ){
+        $element[$key]['#input'] = FALSE;
+    }
     return $element;
 }
 
@@ -39,6 +42,25 @@ function linkeditem_js_load(){
     $path = drupal_get_path( 'module', 'linkeditem' );
     drupal_add_js( $path . '/js/linkeditem.js' ); 
     drupal_add_css( $path . '/css/linkeditem.css'); 
+}
+
+function _drupal_force_child_render_cb(&$element, $parents, $name=NULL){
+    if ( $name ){
+        //Regenerate parents and name
+        $parents[] = $name;
+        $parents_copy = $parents;
+        $element['#name'] = array_shift($parents_copy);
+        if (count($parents_copy)) {
+          $element['#name'] .= '['. implode('][', $parents_copy) .']';
+        }
+    }
+    $element['#parents'] = $element['#array_parents'] = $parents;
+    //Force rerendering
+    unset( $element['#printed'], $element['#value'], $element['#children']);
+    foreach ( element_children( $element ) as $key ) {
+        _drupal_force_child_render_cb( $element[$key], $parents, $key );
+    }
+
 }
 
 /**
@@ -69,9 +91,12 @@ function theme_linked(  $element ){
     foreach ( element_children( $element ) as $item_key ) {
          $item = $element[$item_key];
          unset( $item['#printed'], $item['#value']);
-         $item['#id'] = form_clean_id('edit-'. $item['#name'] . 'inner' );
          $item['#name'] = $element['#name'];
-         $children .= '<div class="edit-' . $item_key. '-wrapper">' . drupal_render($item) . '</div>';
+         $item['#id'] = form_clean_id('edit-'. $item['#name'] . 'inner' );
+         $item['#default_value'] = $element['#default_value'];
+         _drupal_force_child_render_cb( $item, $element['#parents'] );
+         $html =  drupal_render($item);
+         $children .= '<div class="edit-' . $item_key. '-wrapper">' . $html . '</div>';
     }
     
     $output .= '<div class="hiddenFields"> ' . $children . '</div>';
@@ -88,3 +113,10 @@ function theme_linked(  $element ){
   return $out;
 }
 
+function form_type_linked_value($element, $edit = FALSE) {
+   if (func_num_args() == 1) {
+        return $element['#default_value'];
+   }
+
+   return $edit;
+}
