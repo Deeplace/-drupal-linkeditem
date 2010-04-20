@@ -56,7 +56,7 @@ function _drupal_force_child_render_cb(&$element, $parents, $name=NULL){
     }
     $element['#parents'] = $element['#array_parents'] = $parents;
     //Force rerendering
-    unset( $element['#printed'], $element['#value'], $element['#children']);
+    unset( $element['#printed'], $element['#children'], $element['#processed']);
     foreach ( element_children( $element ) as $key ) {
         _drupal_force_child_render_cb( $element[$key], $parents, $key );
     }
@@ -91,10 +91,47 @@ function theme_linked(  $element ){
     foreach ( element_children( $element ) as $item_key ) {
          $item = $element[$item_key];
          unset( $item['#printed'], $item['#value']);
+
+         //Prepare name and id
          $item['#name'] = $element['#name'];
          $item['#id'] = form_clean_id('edit-'. $item['#name'] . 'inner' );
-         $item['#default_value'] = $element['#default_value'];
-         _drupal_force_child_render_cb( $item, $element['#parents'] );
+
+
+         //For simple elements, just assign new value
+         if ( isset( $element['#value'] ) && !is_array( $element['#value'] )) {
+                $item['#value'] = $element['#value'];
+         }
+         
+         //If there are children
+         if ( count(element_children( $item )) ) {
+         
+            
+            $item['#value'] = $element['#value'];
+
+            //Checkboxes will not be properly expanded via #process callback
+            if ( $item['#type'] == 'checkboxes' ) {
+                foreach ( element_children( $item ) as $subkey ){
+                    $item[$subkey]['#value'] = isset( $element['#value'][$subkey] );
+                }
+            } else {
+                    //And date - will be
+                //process callback
+                // And process form element if needed 
+                if (isset($item['#process']) /*&& !$item['#processed']*/) {
+                  foreach ($item['#process'] as $process) {
+                    if (function_exists($process)) {
+                      $item = $process($item,NULL, $form_state, $complete_form);
+                    }
+                  }
+                  $item['#processed'] = TRUE;
+                }
+            }
+            
+            //rename recursive all child elements
+            _drupal_force_child_render_cb( $item, $element['#parents'] );
+         }
+
+         //Render child element
          $html =  drupal_render($item);
          $children .= '<div class="edit-' . $item_key. '-wrapper">' . $html . '</div>';
     }
