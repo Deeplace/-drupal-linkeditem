@@ -1,15 +1,25 @@
 <?php
-
 /*
- * Implementation of hook_elements(  )
+ * Implementation of hook_element_info()
 */
-function linkeditem_elements() {
-  $type['linked'] = array( 
-       '#input' => TRUE,
-       '#process' => array('linkeditem_expand'),
-       '#default_value' => NULL,
-       '#linked' => array(),
-    );
+function linkeditem_element_info() {
+  $path = drupal_get_path('module', 'linkeditem');
+
+  $type['linked'] = array(
+    '#input' => TRUE,
+    '#process' => array('linkeditem_expand'),
+    '#default_value' => NULL,
+    '#theme' => 'linked',
+    '#linked' => array(),
+    '#attached' => array(
+      'js' => array(
+        $path . '/js/linkeditem.js'
+      ),
+      'css' => array(
+        $path . '/css/linkeditem.css',
+      )
+    )
+  );
   return $type;
 }
 
@@ -17,143 +27,135 @@ function linkeditem_elements() {
  * Our process callback to expand the table control.
  */
 function linkeditem_expand($element) {
-    $element['#tree'] = TRUE;
-    foreach( element_children( $element ) as $key ){
-        $element[$key]['#input'] = FALSE;
-    }
-    return $element;
+  $element['#tree'] = TRUE;
+  foreach (element_children($element) as $key) {
+    $element[$key]['#input'] = FALSE;
+  }
+  return $element;
 }
-
 
 /**
  * Implementation of hook_theme().
- * 
+ *
  * This lets us tell Drupal about our theme functions and their arguments.
  */
-function linkeditem_theme(){
+function linkeditem_theme() {
   return array(
     'linked' => array(
-      'arguments' => array('element'),
+      'render element' => 'element',
     ),
   );
 }
 
-function linkeditem_js_load(){
-    $path = drupal_get_path( 'module', 'linkeditem' );
-    drupal_add_js( $path . '/js/linkeditem.js' ); 
-    drupal_add_css( $path . '/css/linkeditem.css'); 
-}
-
-function _drupal_force_child_render_cb(&$element, $parents, $name=NULL){
-    if ( $name ){
-        //Regenerate parents and name
-        $parents[] = $name;
-        $parents_copy = $parents;
-        $element['#name'] = array_shift($parents_copy);
-        if (count($parents_copy)) {
-          $element['#name'] .= '['. implode('][', $parents_copy) .']';
-        }
+function _drupal_force_child_render_cb(&$element, $parents, $name = NULL) {
+  if ($name) {
+    //Regenerate parents and name
+    $parents[] = $name;
+    $parents_copy = $parents;
+    $element['#name'] = array_shift($parents_copy);
+    if (count($parents_copy)) {
+      $element['#name'] .= '[' . implode('][', $parents_copy) . ']';
     }
-    $element['#parents'] = $element['#array_parents'] = $parents;
-    //Force rerendering
-    unset( $element['#printed'], $element['#children'], $element['#processed']);
-    foreach ( element_children( $element ) as $key ) {
-        _drupal_force_child_render_cb( $element[$key], $parents, $key );
-    }
+  }
 
+  $element['#parents'] = $element['#array_parents'] = $parents;
+  //Force rerendering
+  unset($element['#printed'], $element['#children'], $element['#processed']);
+  foreach (element_children($element) as $key) {
+    _drupal_force_child_render_cb($element[$key], $parents, $key);
+  }
 }
 
 /**
  * Theme function to format the output of tablegrid form element type.
  *
  */
-function theme_linked(  $element ){
-  static $configs = array(  );
+function theme_linked($variables) {
+  static $configs = array();
+  $output = '';
 
-    $config = $element['#linked'];
-    $config_key = array_search( $config, $configs );
-    if ( $config_key === FALSE ) {
-        $configs[] = $config;
-        $config_key = count( $configs ) - 1;
-        drupal_add_js( array( 'linkedinput'=>array( $config_key=>$config ) ), 'setting' );
+  $element = $variables['element'];
+  $config = $element['#linked'];
+  $config_key = array_search($config, $configs);
+  if ($config_key === FALSE) {
+    $configs[] = $config;
+    $config_key = count($configs) - 1;
+    drupal_add_js(array('linkedinput' => array($config_key => $config)), 'setting');
+  }
+
+  $output .= '<div class="linked-input" rel="' . $config_key . '">';
+  if (isset($element['#field_prefix'])) {
+    $output .= '<span class="field-prefix">' . $element['#field_prefix'] . '</span>';
+  }
+
+  //Generate child elements, disabled, with same name as parent, and class containing name
+  foreach (element_children($element) as $item_key) {
+    $item = $element[$item_key];
+    unset($item['#printed'], $item['#value']);
+
+    //Prepare name and id
+    $item['#name'] = $element['#name'];
+    $item['#id'] = drupal_html_id('edit-' . $item['#name'] . 'inner');
+
+
+    //For simple elements, just assign new value
+    if (isset($element['#value']) && !is_array($element['#value'])) {
+      $item['#value'] = $element['#value'];
     }
 
-    jquery_livequery_js_load(  );
-    linkeditem_js_load(  );
-    $output = '';
+    //If there are children
+    if (count(element_children($item))) {
+      $item['#value'] = $element['#value'];
 
-    $output .= '<div class="linked-input" rel="' . $config_key . '">';
-    if (isset($element['#field_prefix'])) {
-        $output .= '<span class="field-prefix">'. $element['#field_prefix'] .'</span>';
-    }
-    
-    //Generate child elements, disabled, with same name as parent, and class containing name
-    foreach ( element_children( $element ) as $item_key ) {
-         $item = $element[$item_key];
-         unset( $item['#printed'], $item['#value']);
+      //Checkboxes will not be properly expanded via #process callback
+      if ($item['#type'] == 'checkboxes') {
+        foreach (element_children($item) as $subkey) {
+          $item[$subkey]['#value'] = isset($element['#value'][$subkey]);
+        }
+      }
+      else {
+        // And date - will be
+        // process callback
+        // And process form element if needed
+        // && !$item['#processed']
 
-         //Prepare name and id
-         $item['#name'] = $element['#name'];
-         $item['#id'] = form_clean_id('edit-'. $item['#name'] . 'inner' );
-
-
-         //For simple elements, just assign new value
-         if ( isset( $element['#value'] ) && !is_array( $element['#value'] )) {
-                $item['#value'] = $element['#value'];
-         }
-         
-         //If there are children
-         if ( count(element_children( $item )) ) {
-         
-            
-            $item['#value'] = $element['#value'];
-
-            //Checkboxes will not be properly expanded via #process callback
-            if ( $item['#type'] == 'checkboxes' ) {
-                foreach ( element_children( $item ) as $subkey ){
-                    $item[$subkey]['#value'] = isset( $element['#value'][$subkey] );
-                }
-            } else {
-                    //And date - will be
-                //process callback
-                // And process form element if needed 
-                if (isset($item['#process']) /*&& !$item['#processed']*/) {
-                  foreach ($item['#process'] as $process) {
-                    if (function_exists($process)) {
-                      $item = $process($item,NULL, $form_state, $complete_form);
-                    }
-                  }
-                  $item['#processed'] = TRUE;
-                }
+        if (isset($item['#process'])) {
+          foreach ($item['#process'] as $process) {
+            if (function_exists($process)) {
+              $item = $process($item, NULL, $form_state, $complete_form);
             }
-            
-            //rename recursive all child elements
-            _drupal_force_child_render_cb( $item, $element['#parents'] );
-         }
+          }
+          $item['#processed'] = TRUE;
+        }
+      }
 
-         //Render child element
-         $html =  drupal_render($item);
-         $children .= '<div class="edit-' . $item_key. '-wrapper">' . $html . '</div>';
-    }
-    
-    $output .= '<div class="hiddenFields"> ' . $children . '</div>';
-
-    if (isset($element['#field_suffix'])) {
-        $output .= ' <span class="field-suffix">'. $element['#field_suffix'] .'</span>';
+      //rename recursive all child elements
+      _drupal_force_child_render_cb($item, $element['#parents']);
     }
 
-    $output .= '</div>';
-    
+    //Render child element
+    $html = drupal_render($item);
+    $children .= '<div class="edit-' . $item_key . '-wrapper">' . $html . '</div>';
+  }
 
+  $output .= '<div class="hiddenFields"> ' . $children . '</div>';
 
-  $out = theme('form_element', $element, $output);
-  return $out;
+  if (isset($element['#field_suffix'])) {
+    $output .= ' <span class="field-suffix">' . $element['#field_suffix'] . '</span>';
+  }
+
+  $output .= '</div>';
+
+  $element['#children'] = $output;
+
+  return theme('form_element', array('element' => $element));
 }
 
 function form_type_linked_value($element, $edit = FALSE) {
-   if (func_num_args() == 1) {
-        return $element['#default_value'];
-   }
+  if (func_num_args() == 1) {
+    return $element['#default_value'];
+  }
 
-   return $edit;
+  return $edit;
 }
+
