@@ -151,11 +151,11 @@ function theme_linked($variables) {
   return theme('form_element', array('element' => $element));
 }
 
-function form_type_linked_value($element, $edit = FALSE) {
-  if (func_num_args() == 1) {
+function form_type_linked_value(&$element, $input = FALSE, $form_state = NULL) {
+  if ($input === FALSE) {
     return $element['#default_value'];
   }
 
-  return $edit;
+  return $input;
 }
 
